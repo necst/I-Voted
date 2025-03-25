@@ -66,7 +66,6 @@ else
 endif
 
 run: $(targetname).exe build/final.xclbin build/insts.bin
-	# Export MLIR_AIE_PATH during execution if needed by the application
 	env MLIR_AIE_PATH="$(MLIR_AIE_PATH)" ${powershell} ./$< -x build/final.xclbin -i build/insts.bin -k MLIR_AIE
 
 run_py: build/final.xclbin build/insts.bin

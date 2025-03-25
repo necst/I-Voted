@@ -48,7 +48,22 @@ notice that, if you do not define a new position for MLIR_AIE_PATH, this reposit
 
 ### Step 4: Build Application
 ```bash
-export MLIR_AIE_PATH=<your path to> mlir-aie
+cd ivoted
+make
 ```
+
+### Step 5: Run the Application
+C++ Version: 
+
+```bash
+make run
+```
+
+Python Version
+
+```bash
+make run_py
+```
+
 
 
