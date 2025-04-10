@@ -12,15 +12,27 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <type_traits>
+#include <aie_api/aie.hpp>
 
 extern "C" {
 
 void vector_scalar_mul_aie_scalar(int32_t *a, int32_t *c, int32_t *factor,
                                   int32_t N) {
-  event0(); // event to mark start of function
-  for (int i = 0; i < N; i++) {
-    c[i] = *factor * a[i];
+  event0();
+  constexpr int vec_factor = 32;
+  int32_t *__restrict pA1 = a;
+  int32_t *__restrict pC1 = c;
+  const int F = N / vec_factor;
+  int32_t fac = *factor;
+  for (int i = 0; i < F; i++)
+    chess_prepare_for_pipelining chess_loop_range(16, )
+  {
+      aie::vector<int32_t, vec_factor> A0 = aie::load_v<vec_factor>(pA1);
+      pA1 += vec_factor;
+      aie::accum<acc64, vec_factor> cout = aie::mul(A0, fac);
+      aie::store_v(pC1, cout.template to_vector<int32_t>(0));
+      pC1 += vec_factor;
   }
-  event1(); // event to mark end of function
+  event1();
 }
 } // extern "C"
