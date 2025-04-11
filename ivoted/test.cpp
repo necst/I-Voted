@@ -174,8 +174,8 @@ int setup_and_run_aie(int IN1_VOLUME, int IN2_VOLUME, int OUT_VOLUME, args myarg
   bo_in2.sync(XCL_BO_SYNC_BO_TO_DEVICE);
   bo_out.sync(XCL_BO_SYNC_BO_TO_DEVICE);
   // TRACE: To enable tracing, comment out the following line(s)
-  if (myargs.trace_size > 0)
-    bo_trace.sync(XCL_BO_SYNC_BO_TO_DEVICE);
+  // if (myargs.trace_size > 0)
+  //   bo_trace.sync(XCL_BO_SYNC_BO_TO_DEVICE);
 
   unsigned num_iter = myargs.n_iterations + myargs.n_warmup_iterations;
   float npu_time_total = 0;

@@ -77,6 +77,7 @@ trace: $(targetname).exe build/final_trace.xclbin build/insts.bin
 	$(MLIR_AIE_PATH)/programming_examples/utils/parse_trace.py --filename trace.txt --mlir build/aie_trace.mlir --colshift $(colshift) > trace_4b.json
 	$(MLIR_AIE_PATH)/programming_examples/utils/get_trace_summary.py --filename trace_4b.json
 
+# Currently Not Supported
 trace_py: build/final_trace.xclbin build/insts.bin
 	${powershell} python3 $(srcdir)/test.py -x build/final_trace.xclbin -i build/insts.bin -k MLIR_AIE \
 	    -t $(trace_size) -i1s $(in1_size) -i2s $(in2_size) -os $(out_size)
