@@ -54,13 +54,9 @@ set(RUNTIME_LIB_PATH "${MLIR_AIE_PATH}/runtime_lib/test_lib")
 message(STATUS "MLIR_AIE_PATH = ${MLIR_AIE_PATH}")
 message(STATUS "RUNTIME_LIB_PATH = ${RUNTIME_LIB_PATH}")
 
-# Check if test_utils.cpp exists at the expected location
-if(NOT EXISTS "${RUNTIME_LIB_PATH}/test_utils.cpp")
-    message(FATAL_ERROR "Cannot find test_utils.cpp at ${RUNTIME_LIB_PATH}/test_utils.cpp")
-endif()
 
 add_executable(${currentTarget}
-    "${RUNTIME_LIB_PATH}/test_utils.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/utils.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/test.cpp"
 )
 
