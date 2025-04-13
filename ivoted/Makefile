@@ -13,8 +13,8 @@ devicename ?= $(if $(filter 1,$(NPU2)),npu2,npu)
 targetname = aie2
 
 in1_size  = 16384  # in bytes
-in2_size  = 4      # in bytes, must always be 4 (1x int32)
-out_size  = 16384  # in bytes, equal to in1_size
+in2_size  = 16384     # in bytes, must always be 4 (1x int32)
+out_size  = 4  # in bytes, equal to in1_size
 trace_size= 8192
 
 colshift ?= $(if $(filter 1,$(NPU2)),0,1)
@@ -23,7 +23,7 @@ aie_py_src = $(targetname).py
 # Main targets
 all: build/final.xclbin build/insts.bin
 
-build/scale.o: $(srcdir)/vector_scalar_mul.cc
+build/scale.o: $(srcdir)/mse.cc
 	@mkdir -p $(@D)
 ifeq ($(devicename),npu)
 	cd $(@D) && ${PEANO_INSTALL_DIR}/bin/clang++ ${PEANOWRAP2_FLAGS} -c $< -o $(@F)

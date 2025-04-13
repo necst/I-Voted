@@ -15,61 +15,63 @@ from aie.iron.device import NPU1Col1, NPU2
 from aie.iron.controlflow import range_
 
 
-def my_vector_scalar_mul(dev, in1_size, in2_size, out_size, trace_size):
-    in1_dtype = np.int32
-    in2_dtype = np.int32
-    out_dtype = np.int32
+def my_mse(dev, in1_size, in2_size, out_size, trace_size):
+    image_dtype = np.uint8
+    out_dtype = np.float32
+    tile_size = 1024
 
-    tensor_size = in1_size // in1_dtype(0).nbytes
-    num_sub_vectors = 4
-    tile_size = tensor_size // num_sub_vectors
+    tensor_size = in1_size // image_dtype(0).nbytes
+    num_sub_vectors = tensor_size // tile_size
 
-    assert in2_size == 4, "2nd input buffer must be size 4 (4 bytes = 1 integer)."
-    assert out_size == in1_size, "Output buffer size must match input buffer size."
-
+    assert in2_size == in1_size, "Different resolution images not supported yet"
+    
     # Define tensor types
-    tensor_ty = np.ndarray[(tensor_size,), np.dtype[in1_dtype]]
-    tile_ty = np.ndarray[(tile_size,), np.dtype[in1_dtype]]
-    scalar_ty = np.ndarray[(1,), np.dtype[in2_dtype]]
+    image = np.ndarray[(tensor_size,), np.dtype[image_dtype]]
 
+
+    image_flt_tile  = np.ndarray[(tile_size,), np.dtype[image_dtype]]
+    image_ref_tile  = np.ndarray[(tile_size,), np.dtype[image_dtype]]
+    output_val = np.ndarray[(1,), np.dtype[out_dtype]]
     # External, binary kernel definition
-    scale_fn = Kernel(
-        "vector_scalar_mul_aie_scalar",
+    my_fn = Kernel(
+        "mse",
         "scale.o",
-        [tile_ty, tile_ty, scalar_ty, in2_dtype],
+        [image_flt_tile, image_ref_tile, output_val],
     )
 
     # Input data movement
-    of_in = ObjectFifo(tile_ty, name="in")
-    of_factor = ObjectFifo(scalar_ty, name="infactor")
+    of_image_flt = ObjectFifo(image_flt_tile, name="float")
+    of_image_ref = ObjectFifo(image_ref_tile, name="ref")
 
     # Output data movement
-    of_out = ObjectFifo(tile_ty, name="out")
+    of_out = ObjectFifo(output_val, name="out")
 
     # Task for the core to perform
-    def core_fn(of_in, of_factor, of_out, scale_scalar):
-        elem_factor = of_factor.acquire(1)
-        for _ in range_(4):
-            elem_in = of_in.acquire(1)
-            elem_out = of_out.acquire(1)
-            scale_scalar(elem_in, elem_out, elem_factor, tile_size)
-            of_in.release(1)
-            of_out.release(1)
-        of_factor.release(1)
 
+    def core_fn(of_image_flt, of_image_ref, of_out, my_function):
+        out_val = of_out.acquire(1)
+        for i in range_(num_sub_vectors):
+            tile_flt_in = of_image_flt.acquire(1)
+            tile_ref_in = of_image_ref.acquire(1)
+            my_function(tile_flt_in, tile_ref_in, out_val)
+            of_image_flt.release(1)
+            of_image_ref.release(1)
+        out_val[0] = out_val[0] / tensor_size
+        of_out.release(1)
+        
     # Create a worker to perform the task
     my_worker = Worker(
-        core_fn, [of_in.cons(), of_factor.cons(), of_out.prod(), scale_fn]
+        core_fn, [of_image_flt.cons(), of_image_ref.cons(), of_out.prod(), my_fn]
     )
 
     # Runtime operations to move data to/from the AIE-array
     rt = Runtime()
-    with rt.sequence(tensor_ty, scalar_ty, tensor_ty) as (a_in, f_in, c_out):
+    with rt.sequence(image, image, output_val) as (flt_in, ref_in, mi_out):
         rt.enable_trace(trace_size, workers=[my_worker])
         rt.start(my_worker)
-        rt.fill(of_in.prod(), a_in)
-        rt.fill(of_factor.prod(), f_in)
-        rt.drain(of_out.cons(), c_out, wait=True)
+        rt.fill(of_image_flt.prod(), flt_in)
+        rt.fill(of_image_ref.prod(), ref_in)
+        rt.drain(of_out.cons(), mi_out, wait=True)
 
     # Create the program from the device type and runtime
     my_program = Program(dev, rt)
@@ -77,20 +79,17 @@ def my_vector_scalar_mul(dev, in1_size, in2_size, out_size, trace_size):
     # Place components (assign them resources on the device) and generate an MLIR module
     return my_program.resolve_program(SequentialPlacer())
 
-
-# Parse module arguments
+# Check if there are at least 4 arguments (dev, in1_size, in2_size, out_size)
 if len(sys.argv) < 5:
     raise ValueError(
         "[ERROR] Need at least 4 arguments (dev, in1_size, in2_size, out_size)"
     )
+
+# Create an argument parser
 p = argparse.ArgumentParser()
 p.add_argument("-d", "--dev", required=True, dest="device", help="AIE Device")
-p.add_argument(
-    "-i1s", "--in1_size", required=True, dest="in1_size", help="Input 1 size"
-)
-p.add_argument(
-    "-i2s", "--in2_size", required=True, dest="in2_size", help="Input 2 size"
-)
+p.add_argument("-i1s", "--in1_size", required=True, dest="in1_size", help="Input 1 size")
+p.add_argument("-i2s", "--in2_size", required=True, dest="in2_size", help="Input 2 size")
 p.add_argument("-os", "--out_size", required=True, dest="out_size", help="Output size")
 p.add_argument(
     "-t",
@@ -102,22 +101,25 @@ p.add_argument(
 )
 opts = p.parse_args(sys.argv[1:])
 
+# Determine the device based on the provided argument
 if opts.device == "npu":
     dev = NPU1Col1()
 elif opts.device == "npu2":
     dev = NPU2()
 else:
-    raise ValueError("[ERROR] Device name {} is unknown".format(sys.argv[1]))
+    raise ValueError("[ERROR] Device name {} is unknown".format(opts.device))
+
+# Validate the size of the first input
 in1_size = int(opts.in1_size)
 if in1_size % 128 != 0 or in1_size < 1024:
-    print(
-        "In1 buffer size must be a multiple of 128 (so len is multiple of 64) and greater than or equal to 1024 (so len >= 512)"
-    )
+    print("In1 buffer size must be a multiple of 128 (so length is a multiple of 64) and greater than or equal to 1024 (so length >= 512)")
     raise ValueError
+
+# Convert the remaining arguments to integers
 in2_size = int(opts.in2_size)
 out_size = int(opts.out_size)
 trace_size = int(opts.trace_size)
+module = my_mse(dev, in1_size, in2_size, out_size, trace_size)
 
-module = my_vector_scalar_mul(dev, in1_size, in2_size, out_size, trace_size)
-# Print the generated MLIR
+# Print the generated MLIR module
 print(module)
