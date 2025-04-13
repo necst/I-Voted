@@ -29,19 +29,19 @@ def my_mse(dev, in1_size, in2_size, out_size, trace_size):
     image = np.ndarray[(tensor_size,), np.dtype[image_dtype]]
 
 
-    image_flt_tile  = np.ndarray[(tile_size,), np.dtype[image_dtype]]
-    image_ref_tile  = np.ndarray[(tile_size,), np.dtype[image_dtype]]
+    image_tile  = np.ndarray[(tile_size,), np.dtype[image_dtype]]
+    image_tile  = np.ndarray[(tile_size,), np.dtype[image_dtype]]
     output_val = np.ndarray[(1,), np.dtype[out_dtype]]
     # External, binary kernel definition
     my_fn = Kernel(
         "mse",
         "scale.o",
-        [image_flt_tile, image_ref_tile, output_val],
+        [image_tile, image_tile, output_val],
     )
 
     # Input data movement
-    of_image_flt = ObjectFifo(image_flt_tile, name="float")
-    of_image_ref = ObjectFifo(image_ref_tile, name="ref")
+    of_image_flt = ObjectFifo(image_tile, name="float")
+    of_image_ref = ObjectFifo(image_tile, name="ref")
 
     # Output data movement
     of_out = ObjectFifo(output_val, name="out")

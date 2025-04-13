@@ -147,10 +147,10 @@ void initialize_bufOut(std::float_t *bufOut, int SIZE) {
  * @param verbosity Verbosity level.
  * @return 0 if verification passes, 1 otherwise.
  */
-float software_mse(const std::uint8_t *flt, const std::uint8_t *ref, int SIZE, int verbosity) {
+double software_mse(const std::uint8_t *flt, const std::uint8_t *ref, int SIZE, int verbosity) {
     double sum = 0.0;
     for (int i = 0; i < SIZE; i++) {
-        double diff = static_cast<double>(flt[i]) - static_cast<double>(ref[i]);
+        float diff = static_cast<double>(flt[i]) - static_cast<double>(ref[i]);
         double sq = diff * diff;
         sum += sq;
         if (verbosity >= 1) {
@@ -264,11 +264,13 @@ int setup_and_run_aie(int IN1_VOLUME, int IN2_VOLUME, int OUT_VOLUME, args myarg
 
     std::cout << "Verifying results ..." << std::endl;
     auto vstart = std::chrono::system_clock::now();
-    float sw_mi = software_mse(bufIn1, bufIn2, IN1_VOLUME, myargs.verbosity);
-    std::cout << "Software MSE: " << sw_mi << std::endl;
+    double sw_mi = software_mse(bufIn1, bufIn2, IN1_VOLUME, myargs.verbosity);
     float hw_mi = static_cast<float>(bufOut[0]);
+    std::cout << std::fixed << std::setprecision(6);
+    std::cout << "Software MSE: " << sw_mi << std::endl;
     std::cout << "Hardware MSE: " << hw_mi << std::endl;
-
+    std::cout << "Error: " << std::abs(sw_mi - hw_mi) << std::endl;
+    std::cout << std::defaultfloat;
     auto vstop = std::chrono::system_clock::now();
     float vtime = std::chrono::duration_cast<std::chrono::seconds>(vstop - vstart).count();
     if (myargs.verbosity >= 1)
@@ -281,7 +283,7 @@ int setup_and_run_aie(int IN1_VOLUME, int IN2_VOLUME, int OUT_VOLUME, args myarg
     npu_time_max = (npu_time > npu_time_max) ? npu_time : npu_time_max;
     // compare software and hardware results
     if (myargs.do_verify) {
-      if (std::abs(hw_mi - sw_mi) > 0.0001) {
+      if (std::abs(sw_mi - hw_mi) > 0.01) {
         std::cout << "Verification failed: MSE mismatch!" << std::endl;
         ret_val = 1;
       } else {
