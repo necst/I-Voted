@@ -34,7 +34,6 @@ namespace po = boost::program_options;
 #include "xrt/xrt_device.h"
 #include "xrt/xrt_kernel.h"
 
-// Include the utilities header
 #include "utils.hpp"
 
 //--------------------------------------------------------------------------
@@ -186,13 +185,13 @@ int setup_and_run_aie(int IN1_VOLUME, int IN2_VOLUME, int OUT_VOLUME, args myarg
   if (myargs.verbosity >= 1)
     std::cout << "Sequence instr count: " << instr_v.size() << "\n";
 
-  // Inizializza dispositivo e kernel con XRT
+  // Initialize Device and Kernel
   xrt::device device;
   xrt::kernel kernel;
   utils::init_xrt_load_kernel(device, kernel, myargs.verbosity,
                               myargs.xclbin, myargs.kernel);
 
-  // Crea buffer per istruzioni e dati
+  // Create Buffer 
   auto bo_instr = xrt::bo(device, instr_v.size() * sizeof(int),
                           XCL_BO_FLAGS_CACHEABLE, kernel.group_id(1));
   auto bo_in1 = xrt::bo(device, IN1_VOLUME * sizeof(std::uint8_t),
@@ -210,38 +209,40 @@ int setup_and_run_aie(int IN1_VOLUME, int IN2_VOLUME, int OUT_VOLUME, args myarg
   if (myargs.verbosity >= 1)
     std::cout << "Writing data into buffer objects.\n";
 
-  // Carica le istruzioni nel buffer
+  // Load Instructions
   void *bufInstr = bo_instr.map<void *>();
   memcpy(bufInstr, instr_v.data(), instr_v.size() * sizeof(int));
 
-  // Mappa i buffer per i dati
   std::uint8_t *bufIn1 = bo_in1.map<std::uint8_t *>();
   std::uint8_t *bufIn2 = bo_in2.map<std::uint8_t *>();
   std::float_t *bufOut = bo_out.map<std::float_t *>();
   char *bufTrace = bo_trace.map<char *>();
 
-  // Inizializza i buffer: per questo esempio, entrambi gli input vengono
-  // inizializzati chiamando la stessa funzione con valori diversi.
+  // Fill the buffers with random data
   initialize_bufIn_random(bufIn1, IN1_VOLUME);
   initialize_bufIn_random(bufIn2, IN2_VOLUME);
   initialize_bufOut(bufOut, OUT_VOLUME);
 
+  //TRACE: To enable tracing, comment out the following line(s)
+  //if (myargs.trace_size > 0)
+  //  memset(bufTrace, 0, myargs.trace_size);
+
   std::cout << std::endl;
-  // Sincronizza i buffer verso il device
   bo_instr.sync(XCL_BO_SYNC_BO_TO_DEVICE);
   bo_in1.sync(XCL_BO_SYNC_BO_TO_DEVICE);
   bo_in2.sync(XCL_BO_SYNC_BO_TO_DEVICE);
   bo_out.sync(XCL_BO_SYNC_BO_TO_DEVICE);
-  // Se si usa il tracing, sincronizza anche bo_trace (se necessario)
+
+  // TRACE: To enable tracing, comment out the following line(s)
   // if (myargs.trace_size > 0)
   //   bo_trace.sync(XCL_BO_SYNC_BO_TO_DEVICE);
 
-  // Esegui il kernel per il numero richiesto di iterazioni
   unsigned num_iter = myargs.n_iterations + myargs.n_warmup_iterations;
   float npu_time_total = 0;
   float npu_time_min = 9999999;
   float npu_time_max = 0;
   int ret_val = 0;
+
 
   for (unsigned iter = 0; iter < num_iter; iter++) {
     if (myargs.verbosity >= 1)
@@ -256,12 +257,13 @@ int setup_and_run_aie(int IN1_VOLUME, int IN2_VOLUME, int OUT_VOLUME, args myarg
     auto stop = std::chrono::high_resolution_clock::now();
 
     bo_out.sync(XCL_BO_SYNC_BO_FROM_DEVICE);
-    if (myargs.trace_size > 0)
-      bo_trace.sync(XCL_BO_SYNC_BO_FROM_DEVICE);
 
     if (iter < myargs.n_warmup_iterations)
       continue;
-
+    // TRACE: To enable tracing, comment out the following block
+    // if (myargs.trace_size > 0 && iter == myargs.n_warmup_iterations) {
+    //   utils::write_out_trace(bufTrace, myargs.trace_size, myargs.trace_file);
+    // }
     std::cout << "Verifying results ..." << std::endl;
     auto vstart = std::chrono::system_clock::now();
     double sw_mi = software_mse(bufIn1, bufIn2, IN1_VOLUME, myargs.verbosity);
