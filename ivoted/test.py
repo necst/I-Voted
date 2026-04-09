@@ -16,47 +16,43 @@ import aie.utils.test as test_utils
 def main(opts):
     opts = test_utils.create_npu_kernel(opts)
 
-    INOUT0_VOLUME = 4096
-    INOUT1_VOLUME = 1
-    INOUT2_VOLUME = 4096
+    INOUT0_VOLUME = 16384
+    INOUT1_VOLUME = 16384
+    OUT_VOLUME = 1
 
-    INOUT0_DATATYPE = np.int32
-    INOUT1_DATATYPE = np.int32
-    INOUT2_DATATYPE = np.int32
+    INOUT0_DATATYPE = np.uint8
+    INOUT1_DATATYPE = np.uint8
+    OUT_DATATYPE = np.float32
 
-    # Create XRT-backed tensors on the NPU device
-    inout0 = iron.tensor(
-        np.arange(1, INOUT0_VOLUME + 1, dtype=INOUT0_DATATYPE),
-        dtype=INOUT0_DATATYPE,
-        device="npu",
-    )
-    scale_factor = iron.tensor(
-        np.array([3], dtype=INOUT1_DATATYPE),
-        dtype=INOUT1_DATATYPE,
-        device="npu",
-    )
-    inout2 = iron.zeros(
-        (INOUT2_VOLUME,),
-        dtype=INOUT2_DATATYPE,
-        device="npu",
-    )
+    # Use a deterministic input where the expected MSE is exact and easy to verify.
+    img0_np = np.full((INOUT0_VOLUME,), 10, dtype=INOUT0_DATATYPE)
+    img1_np = np.full((INOUT1_VOLUME,), 13, dtype=INOUT1_DATATYPE)
+
+    img0 = iron.tensor(img0_np, dtype=INOUT0_DATATYPE, device="npu")
+    img1 = iron.tensor(img1_np, dtype=INOUT1_DATATYPE, device="npu")
+    out = iron.zeros((OUT_VOLUME,), dtype=OUT_DATATYPE, device="npu")
 
     if opts.verbosity >= 1:
         print("Running Kernel.")
 
-    opts.npu_kernel(inout0, scale_factor, inout2)
+    opts.npu_kernel(img0, img1, out)
 
     errors = 0
     if opts.verify:
         if opts.verbosity >= 1:
             print("Verifying results ...")
-        ref = np.arange(1, INOUT0_VOLUME + 1, dtype=INOUT0_DATATYPE) * 3
-        output_np = np.asarray(inout2)
-        e = np.equal(output_np, ref)
-        errors = np.size(e) - np.count_nonzero(e)
+
+        ref = np.array([9.0], dtype=OUT_DATATYPE)
+        out_np = np.asarray(out)
+
+        if not np.allclose(out_np, ref, rtol=1e-5, atol=1e-5):
+            errors = 1
+            print("Expected:", ref)
+            print("Got     :", out_np)
 
     if not errors:
         print("\nPASS!\n")
+        print(f"mse value is {out_np}")
         sys.exit(0)
     else:
         print("\nError count: ", errors)

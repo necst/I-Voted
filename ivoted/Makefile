@@ -13,8 +13,8 @@ devicename ?= $(if $(filter 1,$(NPU2)),npu2,npu)
 targetname = aie2
 
 in1_size  = 16384  # in bytes
-in2_size  = 16384     # in bytes, must always be 4 (1x int32)
-out_size  = 4  # in bytes, equal to in1_size
+in2_size  = 16384  # in bytes
+out_size  = 4      # in bytes
 trace_size= 8192
 
 colshift ?= $(if $(filter 1,$(NPU2)),0,1)
@@ -56,6 +56,7 @@ build/final_trace.xclbin: build/aie_trace.mlir build/scale.o
 $(targetname).exe: $(srcdir)/test.cpp
 	@rm -rf _build
 	@mkdir -p _build
+	# Pass MLIR_AIE_PATH and size macros to CMake via -D flags
 	cd _build && ${powershell} cmake $(srcdir) -DMLIR_AIE_PATH="$(MLIR_AIE_PATH)" -DTARGET_NAME=$(targetname) -DIN1_SIZE=$(in1_size) -DIN2_SIZE=$(in2_size) -DOUT_SIZE=$(out_size)
 	cd _build && ${powershell} cmake --build . --config Release
 ifeq ("$(powershell)","powershell.exe")
