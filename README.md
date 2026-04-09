@@ -5,7 +5,7 @@ Neural Processing Unit Automation
 To clone this repository: 
 
 ```bash
-git clone --recursive https://github.com/tuo-username/I-Voted.git
+git clone --recursive https://github.com/GiuseppeSorrentino99/I-Voted.git
 ```
 Alternatively, if the reposititory is already cloned
 
