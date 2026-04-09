@@ -21,7 +21,7 @@ git submodule update --remote mlir-aie
 
 ## How To Use
 
-The repository is still under development and now intended for internal usage only. Several bugs or possible optimizations may exist. Please, forward any improvement suggestiond :D 
+The repository is still under development and now intended for internal usage only. Several bugs or possible optimizations may exist. Please, forward any improvement suggestion :D 
 
 The main idea is to use mlir-aie from a private independent repository. 
 To do so, the repository uses a modified version of mlir-aie Makefile that allows to build your design even if you are outside MLIR-AIE
