@@ -43,20 +43,19 @@ build/aie_trace.mlir: $(srcdir)/$(aie_py_src)
 
 build/final.xclbin: build/aie.mlir build/scale.o
 	@mkdir -p $(@D)
-	cd $(@D) && aiecc.py --aie-generate-xclbin --no-compile-host --xclbin-name=$(@F) \
+	cd $(@D) && aiecc --aie-generate-xclbin --no-compile-host --xclbin-name=$(@F) \
 		--no-xchesscc --no-xbridge \
-		--aie-generate-npu-insts --npu-insts-name=insts.bin $(<:%=../%)
+		--aie-generate-npu-insts --npu-insts-name=insts.bin ../build/aie.mlir
 
 build/final_trace.xclbin: build/aie_trace.mlir build/scale.o
 	@mkdir -p $(@D)
-	cd $(@D) && aiecc.py --aie-generate-xclbin --no-compile-host --xclbin-name=$(@F) \
+	cd $(@D) && aiecc --aie-generate-xclbin --no-compile-host --xclbin-name=$(@F) \
 		--no-xchesscc --no-xbridge \
-		--aie-generate-npu-insts --npu-insts-name=insts.bin $(<:%=../%)
+		--aie-generate-npu-insts --npu-insts-name=insts.bin ../build/aie_trace.mlir
 
 $(targetname).exe: $(srcdir)/test.cpp
 	@rm -rf _build
 	@mkdir -p _build
-	# Pass MLIR_AIE_PATH and size macros to CMake via -D flags
 	cd _build && ${powershell} cmake $(srcdir) -DMLIR_AIE_PATH="$(MLIR_AIE_PATH)" -DTARGET_NAME=$(targetname) -DIN1_SIZE=$(in1_size) -DIN2_SIZE=$(in2_size) -DOUT_SIZE=$(out_size)
 	cd _build && ${powershell} cmake --build . --config Release
 ifeq ("$(powershell)","powershell.exe")
