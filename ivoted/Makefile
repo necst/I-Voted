@@ -20,27 +20,10 @@ trace_size= 8192
 colshift ?= $(if $(filter 1,$(NPU2)),0,1)
 aie_py_src = $(targetname).py
 
-fix_peano_triple:
-	@if [ -z "$(PEANO_INSTALL_DIR)" ]; then \
-		echo "PEANO_INSTALL_DIR is not set. Activate ironenv first."; \
-		exit 1; \
-	fi
-	@if [ ! -d "$(PEANO_INSTALL_DIR)/lib/aie2-none-unknown-elf" ]; then \
-		echo "Missing $(PEANO_INSTALL_DIR)/lib/aie2-none-unknown-elf"; \
-		exit 1; \
-	fi
-	@mkdir -p "$(PEANO_INSTALL_DIR)/lib/clang/21/lib"
-	@ln -sfn "$(PEANO_INSTALL_DIR)/lib/aie2-none-unknown-elf" \
-		"$(PEANO_INSTALL_DIR)/lib/aie2-unknown-none-elf"
-	@ln -sfn "$(PEANO_INSTALL_DIR)/lib/clang/21/lib/aie2-none-unknown-elf" \
-		"$(PEANO_INSTALL_DIR)/lib/clang/21/lib/aie2-unknown-none-elf"
-	@echo "PEANO triple compatibility fix applied."
-
 # Main targets
 all: build/final.xclbin build/insts.bin
 
 build/scale.o: $(srcdir)/vector_scalar_mul.cc
-	@$(MAKE) fix_peano_triple
 	@mkdir -p $(@D)
 ifeq ($(devicename),npu)
 	cd $(@D) && ${PEANO_INSTALL_DIR}/bin/clang++ ${PEANOWRAP2_FLAGS} -c $< -o $(@F)
@@ -59,16 +42,14 @@ build/aie_trace.mlir: $(srcdir)/$(aie_py_src)
 	python3 $< -d $(devicename) -i1s $(in1_size) -i2s $(in2_size) -os $(out_size) -t $(trace_size) > $@
 
 build/final.xclbin: build/aie.mlir build/scale.o
-	@$(MAKE) fix_peano_triple
 	@mkdir -p $(@D)
-	cd $(@D) && aiecc.py --aie-generate-xclbin --no-compile-host --xclbin-name=$(@F) \
+	cd $(@D) && aiecc --aie-generate-xclbin --no-compile-host --xclbin-name=$(@F) \
 		--no-xchesscc --no-xbridge \
 		--aie-generate-npu-insts --npu-insts-name=insts.bin ../build/aie.mlir
 
 build/final_trace.xclbin: build/aie_trace.mlir build/scale.o
-	@$(MAKE) fix_peano_triple
 	@mkdir -p $(@D)
-	cd $(@D) && aiecc.py --aie-generate-xclbin --no-compile-host --xclbin-name=$(@F) \
+	cd $(@D) && aiecc --aie-generate-xclbin --no-compile-host --xclbin-name=$(@F) \
 		--no-xchesscc --no-xbridge \
 		--aie-generate-npu-insts --npu-insts-name=insts.bin ../build/aie_trace.mlir
 
@@ -84,23 +65,19 @@ else
 endif
 
 run: $(targetname).exe build/final.xclbin build/insts.bin
-	@$(MAKE) fix_peano_triple
 	env MLIR_AIE_PATH="$(MLIR_AIE_PATH)" ${powershell} ./$< -x build/final.xclbin -i build/insts.bin -k MLIR_AIE
 
 run_py: build/final.xclbin build/insts.bin
-	@$(MAKE) fix_peano_triple
 	${powershell} python3 $(srcdir)/test.py -x build/final.xclbin -i build/insts.bin -k MLIR_AIE \
 	    -i1s $(in1_size) -i2s $(in2_size) -os $(out_size)
 
 trace: $(targetname).exe build/final_trace.xclbin build/insts.bin
-	@$(MAKE) fix_peano_triple
 	${powershell} ./$< -x build/final_trace.xclbin -i build/insts.bin -k MLIR_AIE -t $(trace_size)
 	$(MLIR_AIE_PATH)/programming_examples/utils/parse_trace.py --filename trace.txt --mlir build/aie_trace.mlir --colshift $(colshift) > trace_4b.json
 	$(MLIR_AIE_PATH)/programming_examples/utils/get_trace_summary.py --filename trace_4b.json
 
 # Currently Not Supported
 trace_py: build/final_trace.xclbin build/insts.bin
-	@$(MAKE) fix_peano_triple
 	${powershell} python3 $(srcdir)/test.py -x build/final_trace.xclbin -i build/insts.bin -k MLIR_AIE \
 	    -t $(trace_size) -i1s $(in1_size) -i2s $(in2_size) -os $(out_size)
 	$(MLIR_AIE_PATH)/programming_examples/utils/parse_trace.py --filename trace.txt --mlir build/aie_trace.mlir --colshift $(colshift) > trace_4b.json
