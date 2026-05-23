@@ -10,7 +10,6 @@ import argparse
 import sys
 
 from aie.iron import Kernel, ObjectFifo, Program, Runtime, Worker
-from aie.iron.placers import SequentialPlacer
 from aie.iron.device import NPU1Col1, NPU2
 from aie.iron.controlflow import range_
 
@@ -100,15 +99,15 @@ def my_vector_scalar_mul(dev, in1_size, in2_size, out_size, trace_size):
  
     # Create the program from the device type and runtime
     my_program = Program(dev, rt)
-
+    
     # Place components (assign them resources on the device) and generate an MLIR module
-    return my_program.resolve_program(SequentialPlacer())
+    return my_program.resolve_program()
 
 
 # Parse module arguments
-if len(sys.argv) < 5:
+if len(sys.argv) < 6:
     raise ValueError(
-        "[ERROR] Need at least 4 arguments (dev, in1_size, in2_size, out_size)"
+        "[ERROR] Need at least 5 arguments (dev, in1_size, in2_size, out_size, output_file)"
     )
 p = argparse.ArgumentParser()
 p.add_argument("-d", "--dev", required=True, dest="device", help="AIE Device")
@@ -127,6 +126,9 @@ p.add_argument(
     default=0,
     help="Trace buffer size",
 )
+
+p.add_argument("-of", "--output-file", required=True, dest="output_file", help="The name of the file in which the generated MLIR mldule will be written to")
+
 opts = p.parse_args(sys.argv[1:])
 
 if opts.device == "npu":
@@ -147,4 +149,5 @@ trace_size = int(opts.trace_size)
 
 module = my_vector_scalar_mul(dev, in1_size, in2_size, out_size, trace_size)
 # Print the generated MLIR - DO NOT REMOVE
-print(module)
+with open(opts.output_file, "w") as f:
+    print(module, file=f)

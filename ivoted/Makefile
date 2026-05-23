@@ -35,11 +35,11 @@ endif
 
 build/aie.mlir: $(srcdir)/$(aie_py_src)
 	@mkdir -p $(@D)
-	python3 $< -d $(devicename) -i1s $(in1_size) -i2s $(in2_size) -os $(out_size) > $@
+	python3 $< -d $(devicename) -i1s $(in1_size) -i2s $(in2_size) -os $(out_size) -of $@
 
 build/aie_trace.mlir: $(srcdir)/$(aie_py_src)
 	@mkdir -p $(@D)
-	python3 $< -d $(devicename) -i1s $(in1_size) -i2s $(in2_size) -os $(out_size) -t $(trace_size) > $@
+	python3 $< -d $(devicename) -i1s $(in1_size) -i2s $(in2_size) -os $(out_size) -t $(trace_size) -of $@
 
 build/final.xclbin: build/aie.mlir build/scale.o
 	@mkdir -p $(@D)
